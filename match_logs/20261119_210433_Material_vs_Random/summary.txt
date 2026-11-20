@@ -1,0 +1,13 @@
+MATCH: A = Material (depth 3)  vs  B = Random (depth 0)
+Games: 6   Scoreline: A 6 - 0 B   Draws: 0   Points: A 6.0 / B 0.0
+A as White: 3W-0L-0D    A as Black: 3W-0L-0D
+Average game length: 32.5 plies
+A (Material): 87 moves, avg 1780 nodes/move, avg 0.10s/move (max 0.37s)
+B (Random): 84 moves, avg 1 nodes/move, avg 0.00s/move (max 0.00s)
+
+  Game 1: W=Material   B=Random     1-0      checkmate            7 plies
+  Game 2: W=Random     B=Material   0-1      checkmate            48 plies
+  Game 3: W=Material   B=Random     1-0      checkmate            47 plies
+  Game 4: W=Random     B=Material   0-1      checkmate            32 plies
+  Game 5: W=Material   B=Random     1-0      checkmate            45 plies
+  Game 6: W=Random     B=Material   0-1      checkmate            16 plies

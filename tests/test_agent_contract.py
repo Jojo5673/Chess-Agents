@@ -1,7 +1,7 @@
 """
 Contract tests that EVERY registered agent must pass.
 
-They loop over the agent registry, so a new agent (e.g. your partner's) is
+They loop over the agent registry, so a new agent is
 tested automatically as soon as it is registered in agents/__init__.py.
 """
 import time
