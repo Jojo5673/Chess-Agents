@@ -64,12 +64,14 @@ class MinimaxAgent(Agent):
         order_moves: bool = True,
         seed: Optional[int] = None,
         description: str = "",
+        time_limit_s: Optional[float] = None,
     ):
         super().__init__(name)
         self.eval_fn = eval_fn
         self.depth = depth
         self.use_alpha_beta = use_alpha_beta
         self.order_moves = order_moves
+        self.time_limit_s = time_limit_s
         self.description = description
         self.rng = random.Random(seed)   # tie-breaking among equal root moves
 
@@ -80,6 +82,7 @@ class MinimaxAgent(Agent):
             use_alpha_beta=self.use_alpha_beta,
             order_moves=self.order_moves,
             rng=self.rng,
+            time_limit_s=self.time_limit_s,
         )
 
 

@@ -1,6 +1,7 @@
 """Run from the project root:  python -m unittest discover -v"""
 import math
 import random
+import time
 import unittest
 
 import chess
@@ -8,7 +9,7 @@ import chess
 from agents import available_agents, create_agent
 from engine import (Game, GameOverError, HumanPlayer, IllegalMoveError,
                     MATE_SCORE, MinimaxAgent, RandomAgent, find_best_move, material)
-from engine.search import _Searcher
+from engine.search import _Searcher, _static_exchange_eval
 from match import run_match
 
 POSITIONS = [
@@ -73,6 +74,76 @@ class SearchTests(unittest.TestCase):
             searcher._quiescence(board, -math.inf, math.inf, ply=0, qply=0),
             0,
         )
+
+    def test_static_exchange_estimates_a_losing_capture(self):
+        board = chess.Board("2n4k/4r3/8/8/8/8/4Q3/K7 w - - 0 1")
+        capture = chess.Move.from_uci("e2e7")
+
+        self.assertEqual(_static_exchange_eval(board, capture), -400)
+
+    def test_quiescence_does_not_prune_a_checking_capture(self):
+        board = chess.Board("2nk4/4r3/8/8/8/8/4Q3/K7 w - - 0 1")
+        capture = chess.Move.from_uci("e2e7")
+        searcher = _Searcher(material, True, True)
+
+        self.assertIn(capture, board.legal_moves)
+        self.assertTrue(board.gives_check(capture))
+        self.assertFalse(searcher._prune_quiescence_capture(board, capture))
+
+    def test_transposition_table_reuses_exact_search_result(self):
+        board = chess.Board()
+        searcher = _Searcher(material, True, True)
+        searcher._initialize_history(board)
+
+        first = searcher._value(board, 2, -math.inf, math.inf, 0)
+        searched_nodes = searcher.nodes
+        second = searcher._value(board, 2, -math.inf, math.inf, 0)
+
+        self.assertEqual(first, second)
+        self.assertEqual(searcher.nodes, searched_nodes + 1)
+
+    def test_transposition_keys_include_repetition_history(self):
+        first = chess.Board()
+        second = chess.Board()
+        for uci in ("g1f3", "g8f6", "f3g1", "f6g8"):
+            first.push_uci(uci)
+        for uci in ("b1c3", "b8c6", "c3b1", "c6b8"):
+            second.push_uci(uci)
+
+        first_searcher = _Searcher(material, True, True)
+        second_searcher = _Searcher(material, True, True)
+        first_searcher._initialize_history(first)
+        second_searcher._initialize_history(second)
+
+        self.assertEqual(first._transposition_key(), second._transposition_key())
+        self.assertNotEqual(
+            first_searcher._tt_key(first), second_searcher._tt_key(second))
+
+    def test_time_limit_returns_last_completed_iteration(self):
+        board = chess.Board()
+        initial_fen = board.fen()
+
+        def slow_deeper_eval(position):
+            if len(position.move_stack) >= 2:
+                time.sleep(0.002)
+            return material(position)
+
+        result = find_best_move(board, 4, slow_deeper_eval, time_limit_s=0.05)
+
+        self.assertEqual(result.depth, 1)
+        self.assertIn(result.move, board.legal_moves)
+        self.assertEqual(board.fen(), initial_fen)
+
+    def test_tiny_time_limit_returns_a_legal_fallback(self):
+        board = chess.Board()
+        result = find_best_move(board, 4, material, time_limit_s=1e-12)
+
+        self.assertEqual(result.depth, 0)
+        self.assertIn(result.move, board.legal_moves)
+
+    def test_time_limit_must_be_positive_or_none(self):
+        with self.assertRaises(ValueError):
+            find_best_move(chess.Board(), 1, material, time_limit_s=0)
 
     def test_randomization_margin_selects_only_near_best_moves_for_both_sides(self):
         white_board = chess.Board()

@@ -82,6 +82,7 @@ def evaluated_opening(white: Agent, black: Agent, rng: random.Random, plies: int
                 order_moves=agent.order_moves,
                 rng=rng,
                 randomization_margin=margin_cp,
+                time_limit_s=agent.time_limit_s,
             ).move
         else:
             move = agent.choose_move(board.copy()).move
@@ -136,6 +137,7 @@ def play_game(white: Agent, black: Agent, *, game_no: int, a_is_white: bool,
 def run_match(agent_a: Agent, agent_b: Agent, *, games: int = 6,
               max_plies: int = 300, opening_plies: int = 0, seed: int = 0,
               opening_margin_cp: float = 50.0,
+              time_limit_s: Optional[float] = 5.0,
               out_dir: Optional[str] = "match_logs", verbose: bool = False,
               quiet: bool = False) -> MatchResult:
     """Play `games` games, alternating colours; returns records + summary."""
@@ -143,6 +145,13 @@ def run_match(agent_a: Agent, agent_b: Agent, *, games: int = 6,
         raise ValueError("opening_plies must be non-negative")
     if not math.isfinite(opening_margin_cp) or opening_margin_cp < 0:
         raise ValueError("opening_margin_cp must be a finite non-negative score")
+    if (time_limit_s is not None
+            and (not math.isfinite(time_limit_s) or time_limit_s <= 0)):
+        raise ValueError("time_limit_s must be a finite positive number or None")
+
+    for agent in (agent_a, agent_b):
+        if isinstance(agent, MinimaxAgent):
+            agent.time_limit_s = time_limit_s
 
     # Generate with A as White and B as Black, then reuse each line for the
     # colour-swapped game so both agents see the same opening.
@@ -285,6 +294,8 @@ def main() -> None:
                    help="max score loss from best move allowed in the opening (default 50)")
     p.add_argument("--max-plies", type=int, default=300,
                    help="declare a draw after this many half-moves (default 300)")
+    p.add_argument("--time-limit", type=float, default=5.0,
+                   help="maximum seconds per searched move (default 5; 0 disables)")
     p.add_argument("--seed", type=int, default=0, help="random seed (default 0)")
     p.add_argument("--out", default="match_logs", help="log folder ('' to disable)")
     p.add_argument("--verbose", action="store_true", help="print every move")
@@ -296,11 +307,15 @@ def main() -> None:
                   f"{spec.description}")
         return
 
-    agent_a = create_agent(args.a, args.depth_a or args.depth, seed=args.seed)
-    agent_b = create_agent(args.b, args.depth_b or args.depth, seed=args.seed + 1)
+    time_limit_s = None if args.time_limit == 0 else args.time_limit
+    agent_a = create_agent(args.a, args.depth_a or args.depth, seed=args.seed,
+                           time_limit_s=time_limit_s)
+    agent_b = create_agent(args.b, args.depth_b or args.depth, seed=args.seed + 1,
+                           time_limit_s=time_limit_s)
     run_match(agent_a, agent_b, games=args.games, max_plies=args.max_plies,
               opening_plies=args.opening_plies, seed=args.seed,
               opening_margin_cp=args.opening_margin_cp,
+              time_limit_s=time_limit_s,
               out_dir=args.out or None, verbose=args.verbose)
 
 

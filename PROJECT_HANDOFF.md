@@ -150,7 +150,7 @@ evaluated moves instead of complete randomness`), replaces uniform random legal
 moves with agent-guided variety:
 
 - `--opening-plies` selects how many initial half-moves use opening selection;
-  it defaults to zero.
+  the current CLI default is four, while the `run_match()` API default is zero.
 - For a `MinimaxAgent`, every legal candidate is scored using its normal search
   depth and evaluation. The chooser samples only moves within
   `--opening-margin-cp` (default 50 centipawns) of the best score for the side
@@ -166,11 +166,66 @@ moves with agent-guided variety:
 Example: `python match.py --a structure --b material --games 10 --seed 7
 --opening-plies 4 --opening-margin-cp 50`.
 
-The CLI, `run_match()` default, help, and [README.md](./README.md) now agree on
-zero opening plies by default. The PGN at
+The CLI and Python API currently have different defaults (four and zero,
+respectively). The PGN at
 [match_logs/20261120_080916_Structure_vs_Material/games.pgn](./match_logs/20261120_080916_Structure_vs_Material/games.pgn)
 predates the CLI-default commit and therefore still begins with randomized
 moves.
+
+### Search performance controls
+
+The shared search now includes a bounded transposition table keyed by the
+position, halfmove clock, and exact repetition-history counts since the last
+irreversible move. This prevents cached scores from crossing different
+repetition or 75-move contexts. Entries retain depth, bound type, score, and
+best move; mate scores are normalized by ply before storage. The table is
+limited to 50,000 entries per move search.
+
+Quiescence search prunes clearly losing captures using static exchange
+evaluation with a 150-centipawn safety margin. It never applies this pruning
+while in check, and excludes promotions and checking captures. Check evasions
+remain mandatory, including at the quiescence safety cap.
+
+`find_best_move(..., time_limit_s=seconds)` uses iterative deepening and
+returns only the last fully completed depth if the deadline interrupts a
+later iteration. If the time budget is too short to complete depth 1, it
+returns a legal fallback at depth 0. Its default remains unlimited for direct
+API use.
+`MinimaxAgent` accepts a `time_limit_s` option. The match CLI and
+`run_match()` default to five seconds per searched move; `--time-limit 0`
+disables the limit. The limit also applies to agent-guided opening searches.
+
+A baseline `cProfile` run on a fixed tactical position at depth 3 visited
+12,271 nodes and made about 14.9 million calls under instrumentation
+(approximately 9.8 seconds instrumented). Structure evaluation accounted for
+about 7.3 seconds cumulative time, with repeated side-difference and
+piece-square calculations prominent. Profiling is an offline diagnostic; it
+does not run during normal matches. Re-profile the same position after changes
+before drawing performance conclusions.
+
+After adding SEE pruning and the transposition table, the same profiled search
+visited 10,302 nodes, made about 13.0 million calls, and took 7.7 seconds under
+instrumentation. Structure evaluation was still the largest cost (about 5.3
+seconds cumulative); the profile indicates roughly 16% fewer nodes and 22%
+less instrumented time, not an equivalent wall-clock speedup.
+
+Unprofiled fixed-position measurements (seconds; each search is a fresh board):
+
+| Position | Agent | Depth 3 | Depth 4 |
+|---|---|---:|---:|
+| Opening | Structure | 1.19s / 4,807 nodes | 13.82s / 42,301 |
+| Opening | Material | 0.53s / 3,760 | 4.97s / 32,917 |
+| Tactical | Structure | 2.84s / 10,302 | 13.92s / 50,367 |
+| Tactical | Material | 1.14s / 9,918 | 4.93s / 37,166 |
+
+With the default five-second iterative budget and requested depth 5, Structure
+completed depth 3 on both positions; Material completed depth 4 in the opening
+and depth 3 in the tactical position. Each search returned at about 5.00
+seconds. The time limit bounds normal match moves while reporting the actual
+completed depth.
+
+The current full suite passes 69 tests, including SEE, TT history isolation,
+timeout fallback, and board restoration coverage.
 
 ## Git history references
 

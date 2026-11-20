@@ -10,7 +10,7 @@ the "who built which agent" statement once those exist.
 ## Layout
     engine/
       evaluation.py   EvalFn type, shared piece values, material(), MATE_SCORE
-      search.py       minimax + alpha-beta, quiescence, move ordering, terminal detection
+      search.py       minimax + alpha-beta, quiescence, transposition table, move ordering
       agent.py        Player / HumanPlayer / Agent / MinimaxAgent / RandomAgent
       game.py         Game controller (what the GUI and match harness talk to)
     agents/
@@ -40,7 +40,11 @@ It then works in `match.py --a yours`, and shows up in `available_agents()` for 
     python match.py --list
     python match.py --a material --b random --games 6 --depth 3
     python match.py --a structure --b aggression --games 10 --depth-a 3 --depth-b 3 --seed 1
-Colours alternate every game. `--opening-plies` (default 0) selects that many
+Colours alternate every game. `--time-limit` (default 5 seconds) caps each
+searched move; iterative deepening returns the best move from the last fully
+completed depth (or a legal fallback if depth 1 cannot finish). Set
+`--time-limit 0` for an unlimited search.
+`--opening-plies` (CLI default 4; `run_match()` default 0) selects that many
 initial half-moves by searching with each bot's evaluation and randomizing among
 near-best moves. `--opening-margin-cp` (default 50) controls how far below the
 best score a move can be to qualify. Each generated opening is reused with
@@ -68,4 +72,6 @@ stats), `moves.csv` (every move with score/depth/nodes/time), `games.json`, `gam
 * Difficulty selector: `agent.depth = 2` (a plain attribute, changeable any time).
 * Agents search a copy of the board, so the GUI can keep drawing `game.board`
   while a worker thread is thinking. Only apply the finished move on the UI thread.
-* Typical depths in pure Python: 3 is fast, 4 is slower, 5+ is impractical.
+* Typical depths in pure Python: 3 is fast, 4 is slower, 5+ is impractical
+  without a time cap. `find_best_move(..., time_limit_s=...)` uses iterative
+  deepening and reports the completed depth in `SearchResult.depth`.
