@@ -266,7 +266,7 @@ def main() -> None:
     p.add_argument("--depth", type=int, help="search depth for both agents")
     p.add_argument("--depth-a", type=int, help="search depth for A (overrides --depth)")
     p.add_argument("--depth-b", type=int, help="search depth for B (overrides --depth)")
-    p.add_argument("--opening-plies", type=int, default=4,
+    p.add_argument("--opening-plies", type=int, default=0,
                    help="random opening half-moves per game pair (default 4, 0 = none)")
     p.add_argument("--max-plies", type=int, default=300,
                    help="declare a draw after this many half-moves (default 300)")
