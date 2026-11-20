@@ -102,7 +102,7 @@ class Game:
 
     # ---- game state --------------------------------------------------------
     def _outcome(self):
-        return self.board.outcome(claim_draw=True)
+        return self.board.outcome(claim_draw=False)
 
     @property
     def is_over(self) -> bool:
