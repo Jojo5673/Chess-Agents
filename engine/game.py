@@ -173,8 +173,10 @@ class Game:
 
         player = self.current_player
         color = "white" if self.board.turn == chess.WHITE else "black"
-        san = self.board.san(move)          # must be computed BEFORE pushing
-        self.board.push(move)
+        next_board = self.board.copy()
+        san = next_board.san(move)
+        next_board.push(move)
+        self.board = next_board
 
         record = MoveRecord(
             ply=len(self.history) + 1, color=color, player=player.name,

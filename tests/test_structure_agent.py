@@ -2,6 +2,7 @@ import unittest
 
 import chess
 
+from agents import create_agent
 from agents.structure_agent import (
     backward_pawns,
     bishop_pair,
@@ -21,6 +22,7 @@ from agents.structure_agent import (
     rook_file_score,
     safe_king_corners,
 )
+from engine.search import terminal_score
 
 
 def board(fen):
@@ -96,6 +98,29 @@ class StructureFeatureTests(unittest.TestCase):
     def test_phase_extremes(self):
         self.assertEqual(game_phase(chess.Board()), 24)
         self.assertEqual(game_phase(board("4k3/pp6/8/8/8/8/PP6/4K3 w - - 0 1")), 0)
+
+    def test_claimable_threefold_repetition_is_terminal_to_search(self):
+        repeated = board("4k3/3r1q2/p3p3/2p5/2B5/4P2Q/PPP3PP/1K3R2 w - - 5 34")
+        cycle = ("h3h8", "e8e7", "h8h4", "e7e8")
+        for move in cycle:
+            repeated.push_uci(move)
+        self.assertIsNone(terminal_score(repeated, 0))
+        for move in ("h4h8", "e8e7", "h8h4", "e7e8"):
+            repeated.push_uci(move)
+        self.assertTrue(repeated.is_repetition(2))
+        self.assertFalse(repeated.is_repetition(3))
+        self.assertTrue(repeated.can_claim_threefold_repetition())
+        self.assertEqual(terminal_score(repeated, 0), 0)
+
+    def test_winning_structure_agent_breaks_repetition_cycle(self):
+        position = board("4k3/3r1q2/p3p3/2p5/2B5/4P2Q/PPP3PP/1K3R2 w - - 5 34")
+        for move in ("h3h8", "e8e7", "h8h4", "e7e8", "h4h8", "e8e7"):
+            position.push_uci(move)
+        self.assertTrue(position.is_repetition(2))
+        self.assertFalse(position.can_claim_threefold_repetition())
+
+        agent = create_agent("structure", depth=3, seed=1)
+        self.assertNotEqual(agent.choose_move(position).move, chess.Move.from_uci("h8h4"))
 
     def test_each_scoring_feature_is_mirror_symmetric(self):
         features = (

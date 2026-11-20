@@ -80,7 +80,8 @@ def terminal_score(board: chess.Board, ply: int) -> Optional[float]:
         # The side to move has been mated.
         return -(MATE_SCORE - ply) if board.turn == chess.WHITE else (MATE_SCORE - ply)
     if (board.is_stalemate() or board.is_insufficient_material()
-            or board.is_fifty_moves() or board.is_repetition(3)):
+            or board.is_fifty_moves() or board.is_repetition(3)
+            or (board.is_repetition(2) and board.can_claim_threefold_repetition())):
         return 0
     return None
 
