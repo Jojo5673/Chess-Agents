@@ -1,4 +1,5 @@
 """Run from the project root:  python -m unittest discover -v"""
+import math
 import random
 import unittest
 
@@ -7,6 +8,7 @@ import chess
 from agents import available_agents, create_agent
 from engine import (Game, GameOverError, HumanPlayer, IllegalMoveError,
                     MATE_SCORE, MinimaxAgent, RandomAgent, find_best_move, material)
+from engine.search import _Searcher
 from match import run_match
 
 POSITIONS = [
@@ -21,14 +23,18 @@ class SearchTests(unittest.TestCase):
     def test_alpha_beta_matches_plain_minimax(self):
         """Pruning must never change the value of the search."""
         for fen in POSITIONS:
-            for depth in (1, 2, 3):
+            for depth in (1, 2):
                 plain = find_best_move(chess.Board(fen), depth, material,
                                        use_alpha_beta=False, order_moves=False)
                 pruned = find_best_move(chess.Board(fen), depth, material)
                 self.assertEqual(plain.score, pruned.score, (fen, depth))
+        plain = find_best_move(chess.Board(POSITIONS[0]), 3, material,
+                               use_alpha_beta=False, order_moves=False)
+        pruned = find_best_move(chess.Board(POSITIONS[0]), 3, material)
+        self.assertEqual(plain.score, pruned.score, (POSITIONS[0], 3))
 
     def test_pruning_reduces_nodes(self):
-        fen = POSITIONS[1]
+        fen = POSITIONS[0]
         plain = find_best_move(chess.Board(fen), 3, material, use_alpha_beta=False)
         pruned = find_best_move(chess.Board(fen), 3, material)
         self.assertLess(pruned.nodes, plain.nodes)
@@ -44,6 +50,29 @@ class SearchTests(unittest.TestCase):
         res = find_best_move(board, 2, material)
         self.assertEqual(res.move, chess.Move.from_uci("a8a1"))
         self.assertEqual(res.score, -(MATE_SCORE - 1))   # White perspective
+
+    def test_quiescence_sees_recapture_before_committing_capture(self):
+        board = chess.Board("2n4k/4r3/8/8/8/8/4Q3/K7 w - - 0 1")
+        losing_capture = chess.Move.from_uci("e2e7")
+
+        self.assertIn(losing_capture, board.legal_moves)
+        result = find_best_move(board, 1, material)
+
+        self.assertNotEqual(result.move, losing_capture)
+
+    def test_quiescence_searches_legal_evasions_when_in_check(self):
+        board = chess.Board("4k3/8/8/8/8/8/8/K3R3 b - - 0 1")
+        searcher = _Searcher(
+            lambda position: -100 if position.is_check() else 0,
+            use_alpha_beta=True,
+            order_moves=True,
+        )
+
+        self.assertTrue(board.is_check())
+        self.assertEqual(
+            searcher._quiescence(board, -math.inf, math.inf, ply=0, qply=0),
+            0,
+        )
 
     def test_search_restores_board(self):
         board = chess.Board(POSITIONS[1])

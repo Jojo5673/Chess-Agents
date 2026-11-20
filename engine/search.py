@@ -10,6 +10,7 @@ Features
 * Alpha-Beta pruning (can be switched off, to measure how much it saves).
 * Move ordering (captures by MVV-LVA, promotions, checks first) so that
   pruning cuts off earlier.
+* Quiescence search at the horizon to resolve captures and check evasions.
 * Terminal detection (mate / stalemate / draws) handled here, not by agents.
 * Mate-distance scoring: faster mates are preferred, slower losses are
   preferred over faster ones.
@@ -30,6 +31,8 @@ from .evaluation import EvalFn, MATE_SCORE
 
 # Root moves within this margin of the best score count as ties.
 _TIE_EPS = 1e-6
+# Bound extensions through long checking sequences.
+_MAX_QUIESCENCE_PLY = 4
 
 # Values used only to ORDER moves (not for evaluation).
 _ORDER_VALUE = {
@@ -108,8 +111,11 @@ class _Searcher:
         self.order = order_moves
         self.nodes = 0
 
-    def _moves(self, board: chess.Board) -> List[chess.Move]:
+    def _moves(self, board: chess.Board, tactical_only: bool = False) -> List[chess.Move]:
         moves = list(board.legal_moves)
+        if tactical_only:
+            moves = [move for move in moves
+                     if board.is_capture(move) or move.promotion]
         if self.order:
             moves.sort(key=lambda m: _move_priority(board, m), reverse=True)
         return moves
@@ -151,12 +157,13 @@ class _Searcher:
 
     def _value(self, board, depth, alpha, beta, ply):
         """Recursive minimax with alpha-beta; White maximizes, Black minimizes."""
+        if depth == 0:
+            return self._quiescence(board, alpha, beta, ply, 0)
+
         self.nodes += 1
         done = terminal_score(board, ply)
         if done is not None:
             return done
-        if depth == 0:
-            return self.eval_fn(board)
 
         if board.turn == chess.WHITE:           # maximizing node
             value = -math.inf
@@ -178,3 +185,66 @@ class _Searcher:
                 if self.use_ab and alpha >= beta:
                     break                        # alpha cut-off
             return value
+
+    def _quiescence(self, board, alpha, beta, ply, qply):
+        """Search captures and promotions until the position is quiet."""
+        self.nodes += 1
+        done = terminal_score(board, ply)
+        if done is not None:
+            return done
+
+        in_check = board.is_check()
+        maximizing = board.turn == chess.WHITE
+        stand_pat = None if in_check else self.eval_fn(board)
+
+        if stand_pat is not None:
+            if maximizing:
+                if self.use_ab and stand_pat >= beta:
+                    return stand_pat
+                alpha = max(alpha, stand_pat)
+                value = stand_pat
+            else:
+                if self.use_ab and stand_pat <= alpha:
+                    return stand_pat
+                beta = min(beta, stand_pat)
+                value = stand_pat
+        else:
+            value = -math.inf if maximizing else math.inf
+
+        moves = self._moves(board, tactical_only=not in_check)
+
+        if qply >= _MAX_QUIESCENCE_PLY:
+            if not in_check:
+                return value
+
+            # At the safety limit, still make a legal check evasion before
+            # falling back to static evaluation.
+            for move in moves:
+                board.push(move)
+                self.nodes += 1
+                done = terminal_score(board, ply + 1)
+                score = done if done is not None else self.eval_fn(board)
+                board.pop()
+                if maximizing:
+                    value = max(value, score)
+                    alpha = max(alpha, value)
+                else:
+                    value = min(value, score)
+                    beta = min(beta, value)
+                if self.use_ab and alpha >= beta:
+                    break
+            return value
+
+        for move in moves:
+            board.push(move)
+            score = self._quiescence(board, alpha, beta, ply + 1, qply + 1)
+            board.pop()
+            if maximizing:
+                value = max(value, score)
+                alpha = max(alpha, value)
+            else:
+                value = min(value, score)
+                beta = min(beta, value)
+            if self.use_ab and alpha >= beta:
+                break
+        return value
