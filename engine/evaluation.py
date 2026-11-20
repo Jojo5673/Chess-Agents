@@ -18,7 +18,6 @@ EvalFn = Callable[[chess.Board], float]
 # Score magnitude for a forced checkmate. The search subtracts the ply count
 # so that faster mates score higher than slower ones.
 MATE_SCORE = 100_000
-MATERIAL_SCALE = 1.5
 
 # Standard centipawn-style piece values. Shared so both agents agree on material.
 PIECE_VALUES = {
@@ -38,5 +37,5 @@ def material(board: chess.Board) -> int:
         if value:
             white = len(board.pieces(piece_type, chess.WHITE))
             black = len(board.pieces(piece_type, chess.BLACK))
-            total += value * MATERIAL_SCALE * (white - black)
+            total += value * (white - black)
     return total
