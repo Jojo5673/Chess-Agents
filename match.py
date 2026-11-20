@@ -15,9 +15,9 @@ Output folder (default match_logs/<timestamp>_<A>_vs_<B>/):
     games.json    full structured records
     games.pgn     all games, openable in any chess viewer
 
-Why random openings? Both agents are (nearly) deterministic, so without any
-variation every game would repeat. The first --opening-plies half-moves are
-random (seeded, so reproducible). Each opening is played twice with the
+The first --opening-plies half-moves can be selected randomly from each
+agent's near-best moves. This keeps openings tied to the agents' evaluations
+while adding seeded variety. Each generated opening is played twice with the
 colours swapped, which keeps the comparison fair.
 """
 from __future__ import annotations
@@ -25,6 +25,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import math
 import random
 import time
 from dataclasses import asdict, dataclass, field
@@ -36,7 +37,7 @@ import chess
 import chess.pgn
 
 from agents import available_agents, create_agent
-from engine import Agent, Game
+from engine import Agent, Game, MinimaxAgent, find_best_move
 
 
 @dataclass
@@ -50,7 +51,7 @@ class GameRecord:
     winner: Optional[str]        # 'A', 'B' or None (draw)
     plies: int
     duration_s: float
-    opening: List[str]           # UCI moves of the random opening
+    opening: List[str]           # UCI moves selected by the opening policy
     moves: List[dict] = field(default_factory=list)
     pgn: str = ""
 
@@ -65,29 +66,30 @@ class MatchResult:
 
 
 # ---------------------------------------------------------------- one game --
-def random_opening(rng: random.Random, plies: int) -> List[chess.Move]:
-    """`plies` random legal half-moves, restarting if the game ends early."""
-    while True:
-        board = chess.Board()
-        moves: List[chess.Move] = []
-        for _ in range(plies):
-            move = rng.choice(list(board.legal_moves))
-            board.push(move)
-            moves.append(move)
-        # Reject openings that are already over, or hand the side to move a
-        # mate in one (e.g. 1.f3 e5 2.g4 ... Qh4#) -- those make dull games.
-        if board.is_game_over():
-            continue
-        if any(_gives_mate(board, m) for m in board.legal_moves):
-            continue
-        return moves
-
-
-def _gives_mate(board: chess.Board, move: chess.Move) -> bool:
-    board.push(move)
-    mate = board.is_checkmate()
-    board.pop()
-    return mate
+def evaluated_opening(white: Agent, black: Agent, rng: random.Random, plies: int,
+                      margin_cp: float) -> List[chess.Move]:
+    """Build an opening by sampling near-best moves from each agent in turn."""
+    board = chess.Board()
+    moves: List[chess.Move] = []
+    for _ in range(plies):
+        if board.is_game_over(claim_draw=False):
+            break
+        agent = white if board.turn == chess.WHITE else black
+        if isinstance(agent, MinimaxAgent):
+            move = find_best_move(
+                board, agent.depth, agent.eval_fn,
+                use_alpha_beta=agent.use_alpha_beta,
+                order_moves=agent.order_moves,
+                rng=rng,
+                randomization_margin=margin_cp,
+            ).move
+        else:
+            move = agent.choose_move(board.copy()).move
+        if move is None or move not in board.legal_moves:
+            raise RuntimeError(f"{agent.name} returned no legal move for an opening position")
+        board.push(move)
+        moves.append(move)
+    return moves
 
 
 def play_game(white: Agent, black: Agent, *, game_no: int, a_is_white: bool,
@@ -132,14 +134,25 @@ def play_game(white: Agent, black: Agent, *, game_no: int, a_is_white: bool,
 
 # ------------------------------------------------------------------- match --
 def run_match(agent_a: Agent, agent_b: Agent, *, games: int = 6,
-              max_plies: int = 300, opening_plies: int = 4, seed: int = 0,
+              max_plies: int = 300, opening_plies: int = 0, seed: int = 0,
+              opening_margin_cp: float = 50.0,
               out_dir: Optional[str] = "match_logs", verbose: bool = False,
               quiet: bool = False) -> MatchResult:
     """Play `games` games, alternating colours; returns records + summary."""
-    # Same opening for each colour-swapped pair of games.
-    openings = [random_opening(random.Random(seed * 1000 + i), opening_plies)
-                if opening_plies else []
-                for i in range((games + 1) // 2)]
+    if opening_plies < 0:
+        raise ValueError("opening_plies must be non-negative")
+    if not math.isfinite(opening_margin_cp) or opening_margin_cp < 0:
+        raise ValueError("opening_margin_cp must be a finite non-negative score")
+
+    # Generate with A as White and B as Black, then reuse each line for the
+    # colour-swapped game so both agents see the same opening.
+    openings = [
+        evaluated_opening(
+            agent_a, agent_b, random.Random(seed * 1000 + i),
+            opening_plies, opening_margin_cp,
+        )
+        for i in range((games + 1) // 2)
+    ]
     records: List[GameRecord] = []
     for i in range(games):
         a_is_white = (i % 2 == 0)
@@ -266,8 +279,10 @@ def main() -> None:
     p.add_argument("--depth", type=int, help="search depth for both agents")
     p.add_argument("--depth-a", type=int, help="search depth for A (overrides --depth)")
     p.add_argument("--depth-b", type=int, help="search depth for B (overrides --depth)")
-    p.add_argument("--opening-plies", type=int, default=0,
-                   help="random opening half-moves per game pair (default 4, 0 = none)")
+    p.add_argument("--opening-plies", type=int, default=4,
+                   help="agent-guided randomized opening half-moves (default 4)")
+    p.add_argument("--opening-margin-cp", type=float, default=50.0,
+                   help="max score loss from best move allowed in the opening (default 50)")
     p.add_argument("--max-plies", type=int, default=300,
                    help="declare a draw after this many half-moves (default 300)")
     p.add_argument("--seed", type=int, default=0, help="random seed (default 0)")
@@ -285,6 +300,7 @@ def main() -> None:
     agent_b = create_agent(args.b, args.depth_b or args.depth, seed=args.seed + 1)
     run_match(agent_a, agent_b, games=args.games, max_plies=args.max_plies,
               opening_plies=args.opening_plies, seed=args.seed,
+              opening_margin_cp=args.opening_margin_cp,
               out_dir=args.out or None, verbose=args.verbose)
 
 

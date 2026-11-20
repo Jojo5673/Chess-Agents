@@ -74,6 +74,48 @@ class SearchTests(unittest.TestCase):
             0,
         )
 
+    def test_randomization_margin_selects_only_near_best_moves_for_both_sides(self):
+        white_board = chess.Board()
+        white_scores = {"e2e4": 0.0, "d2d4": -30.0}
+        white_choices = set()
+        for seed in range(20):
+            result = find_best_move(
+                white_board, 1,
+                lambda position: white_scores.get(position.peek().uci(), -500.0),
+                rng=random.Random(seed),
+                randomization_margin=40,
+            )
+            white_choices.add(result.move)
+            self.assertIn(result.move, {
+                chess.Move.from_uci("e2e4"), chess.Move.from_uci("d2d4"),
+            })
+        self.assertEqual(white_choices, {
+            chess.Move.from_uci("e2e4"), chess.Move.from_uci("d2d4"),
+        })
+
+        black_board = chess.Board()
+        black_board.turn = chess.BLACK
+        black_scores = {"e7e5": 0.0, "d7d5": 30.0}
+        black_choices = set()
+        for seed in range(20):
+            result = find_best_move(
+                black_board, 1,
+                lambda position: black_scores.get(position.peek().uci(), 500.0),
+                rng=random.Random(seed),
+                randomization_margin=40,
+            )
+            black_choices.add(result.move)
+            self.assertIn(result.move, {
+                chess.Move.from_uci("e7e5"), chess.Move.from_uci("d7d5"),
+            })
+        self.assertEqual(black_choices, {
+            chess.Move.from_uci("e7e5"), chess.Move.from_uci("d7d5"),
+        })
+
+    def test_randomization_margin_must_be_non_negative(self):
+        with self.assertRaises(ValueError):
+            find_best_move(chess.Board(), 1, material, randomization_margin=-1)
+
     def test_search_restores_board(self):
         board = chess.Board(POSITIONS[1])
         fen, stack = board.fen(), list(board.move_stack)

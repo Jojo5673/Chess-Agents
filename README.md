@@ -5,17 +5,18 @@ the "who built which agent" statement once those exist.
 
 ## Setup
     pip install -r requirements.txt     # installs python-chess (package name: chess)
-    python -m unittest discover -v      # 18 tests, should all pass
+    python -m unittest discover -v      # run the full test suite
 
 ## Layout
     engine/
       evaluation.py   EvalFn type, shared piece values, material(), MATE_SCORE
-      search.py       minimax + alpha-beta, move ordering, terminal detection
+      search.py       minimax + alpha-beta, quiescence, move ordering, terminal detection
       agent.py        Player / HumanPlayer / Agent / MinimaxAgent / RandomAgent
       game.py         Game controller (what the GUI and match harness talk to)
     agents/
       __init__.py     agent registry (create_agent, available_agents)
       material_agent.py   baseline reference agent
+      structure_agent.py  positional/defensive evaluation agent
       template_agent.py   copy this to start a new agent
     match.py          agent-vs-agent match harness + logging (CLI)
     pruning_report.py nodes visited with/without alpha-beta (for the docs)
@@ -39,9 +40,11 @@ It then works in `match.py --a yours`, and shows up in `available_agents()` for 
     python match.py --list
     python match.py --a material --b random --games 6 --depth 3
     python match.py --a structure --b aggression --games 10 --depth-a 3 --depth-b 3 --seed 1
-Colours alternate every game. The first `--opening-plies` (default 4) half-moves
-are random but seeded; each opening is used twice with colours swapped. Without
-this, two deterministic agents would replay the same game every time.
+Colours alternate every game. `--opening-plies` (default 0) selects that many
+initial half-moves by searching with each bot's evaluation and randomizing among
+near-best moves. `--opening-margin-cp` (default 50) controls how far below the
+best score a move can be to qualify. Each generated opening is reused with
+colours swapped. The seed makes the selected openings reproducible.
 Logs go to `match_logs/<time>_<A>_vs_<B>/`: `summary.txt` (scoreline + search
 stats), `moves.csv` (every move with score/depth/nodes/time), `games.json`, `games.pgn`.
 

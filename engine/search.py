@@ -59,18 +59,22 @@ def find_best_move(
     use_alpha_beta: bool = True,
     order_moves: bool = True,
     rng: Optional[random.Random] = None,
+    randomization_margin: float = 0.0,
 ) -> SearchResult:
-    """
-    Search `depth` plies ahead and return the best move for the side to move.
+    """Search `depth` plies and return a best or near-best move.
 
     NOTE: this pushes/pops moves on `board` while searching (it is restored
     before returning). Pass a copy if another thread is reading the board.
+    When `rng` and a positive `randomization_margin` are provided, choose
+    randomly among moves within that margin of the best root score.
     """
     if depth < 1:
         raise ValueError("depth must be >= 1")
+    if not math.isfinite(randomization_margin) or randomization_margin < 0:
+        raise ValueError("randomization_margin must be a finite non-negative score")
     searcher = _Searcher(eval_fn, use_alpha_beta, order_moves)
     start = time.perf_counter()
-    move, score = searcher.search_root(board, depth, rng)
+    move, score = searcher.search_root(board, depth, rng, randomization_margin)
     return SearchResult(move, score, depth, searcher.nodes, time.perf_counter() - start)
 
 
@@ -120,7 +124,7 @@ class _Searcher:
             moves.sort(key=lambda m: _move_priority(board, m), reverse=True)
         return moves
 
-    def search_root(self, board, depth, rng):
+    def search_root(self, board, depth, rng, randomization_margin=0.0):
         """Root of the search: also tracks ties so we can pick among them."""
         self.nodes += 1
         done = terminal_score(board, 0)
@@ -128,6 +132,31 @@ class _Searcher:
             return None, done
 
         maximizing = board.turn == chess.WHITE
+        if randomization_margin > 0 and rng:
+            scored_moves = []
+            for move in self._moves(board):
+                board.push(move)
+                score = self._value(board, depth - 1, -math.inf, math.inf, 1)
+                board.pop()
+                scored_moves.append((move, score))
+
+            best_score = (
+                max(score for _, score in scored_moves)
+                if maximizing else min(score for _, score in scored_moves)
+            )
+            if maximizing:
+                near_best = [
+                    (move, score) for move, score in scored_moves
+                    if score >= best_score - randomization_margin
+                ]
+            else:
+                near_best = [
+                    (move, score) for move, score in scored_moves
+                    if score <= best_score + randomization_margin
+                ]
+            chosen_move, chosen_score = rng.choice(near_best)
+            return chosen_move, chosen_score
+
         alpha, beta = -math.inf, math.inf
         best_score = -math.inf if maximizing else math.inf
         best_moves: List[chess.Move] = []

@@ -79,6 +79,33 @@ class MatchOutputTests(unittest.TestCase):
         text = (Path(self.folder) / "summary.txt").read_text()
         self.assertIn("Scoreline", text)
 
+    def test_agent_guided_opening_is_legal_and_reused_for_color_swap(self):
+        result = run_match(
+            create_agent("material", 1, seed=1),
+            create_agent("structure", 1, seed=2),
+            games=2,
+            max_plies=4,
+            opening_plies=2,
+            opening_margin_cp=40,
+            seed=7,
+            out_dir=None,
+            quiet=True,
+        )
+
+        opening = result.records[0].opening
+        self.assertEqual(len(opening), 2)
+        self.assertEqual(result.records[1].opening, opening)
+        board = chess.Board()
+        for uci in opening:
+            move = chess.Move.from_uci(uci)
+            self.assertIn(move, board.legal_moves)
+            board.push(move)
+        for record in result.records:
+            self.assertEqual(
+                [move["source"] for move in record.moves[:2]],
+                ["opening", "opening"],
+            )
+
 
 if __name__ == "__main__":
     unittest.main()
