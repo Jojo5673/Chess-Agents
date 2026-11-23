@@ -18,6 +18,7 @@ the "who built which agent" statement once those exist.
       material_agent.py   baseline reference agent
       structure_agent.py  positional/defensive evaluation agent
       template_agent.py   copy this to start a new agent
+    gui/              tkinter desktop GUI (python -m gui)
     match.py          agent-vs-agent match harness + logging (CLI)
     pruning_report.py nodes visited with/without alpha-beta (for the docs)
     tests/            unit tests
@@ -51,6 +52,33 @@ best score a move can be to qualify. Each generated opening is reused with
 colours swapped. The seed makes the selected openings reproducible.
 Logs go to `match_logs/<time>_<A>_vs_<B>/`: `summary.txt` (scoreline + search
 stats), `moves.csv` (every move with score/depth/nodes/time), `games.json`, `games.pgn`.
+
+## GUI
+Desktop GUI built with tkinter (standard library, no extra dependencies). From the
+project root:
+
+    python -m gui
+
+* **Play vs Agent**: pick an opponent (every agent in `available_agents()`, including
+  Random), your colour (White / Random / Black), and its depth (1-5) and thinking-time
+  cap. Click a piece and then a target square, or drag it. Castling and en passant are
+  normal king / pawn moves; promotion opens a piece chooser. The board flips when you
+  play Black.
+* **Agent vs Agent**: pick both agents and their settings, then **Step** one move at a
+  time or **Auto-play** / **Pause** with a delay between moves.
+* Difficulty can also be changed mid-game from the side panel (it sets `agent.depth`
+  and `agent.time_limit_s`, effective on the agent's next move). There is always a time
+  cap, so the window never freezes during a search.
+* Side panel: move list, last search per agent (eval in pawns from White's point of view,
+  depth completed, nodes, time), New Game, Undo, Flip, Resign.
+* Shortcuts: Ctrl+N new game, Ctrl+Z undo, F flip, Space auto-play, Right arrow step,
+  Esc cancel.
+
+Code lives in `gui/`: `app.py` (window + controller), `board_view.py` (board canvas,
+input, promotion chooser, result banner), `side_panel.py`, `setup_panel.py`,
+`player_bar.py`, `eval_bar.py`, `runner.py` (runs searches on a worker thread; the board
+is only changed on the UI thread). `tests/test_gui_smoke.py` drives the GUI without a
+main loop (skipped when no display is available).
 
 ## Building the GUI on top (API in engine/game.py)
     from engine import Game, HumanPlayer
