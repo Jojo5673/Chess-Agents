@@ -79,10 +79,17 @@ class MatchOutputTests(unittest.TestCase):
         text = (Path(self.folder) / "summary.txt").read_text()
         self.assertIn("Scoreline", text)
 
-    def test_agent_guided_opening_is_legal_and_reused_for_color_swap(self):
+    def test_openings_use_the_agents_assigned_to_each_game(self):
+        agent_a = create_agent("material", 1, seed=1)
+        agent_b = create_agent("structure", 1, seed=2)
+        agent_a.opening_move = lambda board, rng: chess.Move.from_uci(
+            "e2e4" if board.turn == chess.WHITE else "e7e5")
+        agent_b.opening_move = lambda board, rng: chess.Move.from_uci(
+            "d2d4" if board.turn == chess.WHITE else "d7d5")
+
         result = run_match(
-            create_agent("material", 1, seed=1),
-            create_agent("structure", 1, seed=2),
+            agent_a,
+            agent_b,
             games=2,
             max_plies=4,
             opening_plies=2,
@@ -92,15 +99,14 @@ class MatchOutputTests(unittest.TestCase):
             quiet=True,
         )
 
-        opening = result.records[0].opening
-        self.assertEqual(len(opening), 2)
-        self.assertEqual(result.records[1].opening, opening)
-        board = chess.Board()
-        for uci in opening:
-            move = chess.Move.from_uci(uci)
-            self.assertIn(move, board.legal_moves)
-            board.push(move)
+        self.assertEqual(result.records[0].opening, ["e2e4", "d7d5"])
+        self.assertEqual(result.records[1].opening, ["d2d4", "e7e5"])
         for record in result.records:
+            board = chess.Board()
+            for uci in record.opening:
+                move = chess.Move.from_uci(uci)
+                self.assertIn(move, board.legal_moves)
+                board.push(move)
             self.assertEqual(
                 [move["source"] for move in record.moves[:2]],
                 ["opening", "opening"],

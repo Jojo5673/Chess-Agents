@@ -157,7 +157,13 @@ moves with agent-guided variety:
   to move. The search API supports this through `randomization_margin`.
 - Candidate scoring performs a full root search for each legal move, so using
   many opening plies at high search depth can add significant runtime.
-- The same generated opening is reused for each color-swapped game pair.
+- Each game now receives an independently generated opening, using the agents
+  assigned to White and Black in that game. Fixed match seeds remain
+  reproducible, but color-swapped games no longer share the same opening.
+- Opening RNGs are derived from the match seed and game index. This retains
+  reproducibility while preserving agent identity in alternating-color games.
+  The tradeoff is that color-swapped games may now have different opening
+  lines, adding variation to match-report comparisons.
 - The selection is seeded and reproducible. Agents without a minimax evaluation
   (such as `RandomAgent`) use their own `choose_move` policy for opening plies.
 - Opening selection is computed before `play_game`, so its search time and node
@@ -165,6 +171,10 @@ moves with agent-guided variety:
 
 Example: `python match.py --a structure --b material --games 10 --seed 7
 --opening-plies 4 --opening-margin-cp 50`.
+
+This per-game opening behavior replaced the earlier policy of generating one
+line with A as White/B as Black and replaying it unchanged in the color-swapped
+game. No agent implementation changes are required.
 
 The CLI and Python API currently have different defaults (four and zero,
 respectively). The PGN at

@@ -48,8 +48,10 @@ completed depth (or a legal fallback if depth 1 cannot finish). Set
 `--opening-plies` (CLI default 4; `run_match()` default 0) selects that many
 initial half-moves by searching with each bot's evaluation and randomizing among
 near-best moves. `--opening-margin-cp` (default 50) controls how far below the
-best score a move can be to qualify. Each generated opening is reused with
-colours swapped. The seed makes the selected openings reproducible.
+best score a move can be to qualify. A fresh opening is generated for every
+game using the agents assigned White and Black in that game. The seed makes
+the selected openings reproducible; paired color-swapped games no longer share
+the same opening.
 Logs go to `match_logs/<time>_<A>_vs_<B>/`: `summary.txt` (scoreline + search
 stats), `moves.csv` (every move with score/depth/nodes/time), `games.json`, `games.pgn`.
 

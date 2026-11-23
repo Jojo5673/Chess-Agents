@@ -291,10 +291,12 @@ class RegistryAndMatchTests(unittest.TestCase):
                              seed=7, out_dir=None, quiet=True)
         first, second = play(), play()
         self.assertEqual([r.a_is_white for r in first.records], [True, False, True, False])
-        # colour-swapped pairs share the same random opening
-        self.assertEqual(first.records[0].opening, first.records[1].opening)
         self.assertEqual([r.moves[-1]["fen_after"] for r in first.records],
                          [r.moves[-1]["fen_after"] for r in second.records])
+        self.assertEqual(
+            [record.opening for record in first.records],
+            [record.opening for record in second.records],
+        )
         s = first.summary
         self.assertEqual(s["a_wins"] + s["b_wins"] + s["draws"], 4)
 
