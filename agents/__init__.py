@@ -14,7 +14,7 @@ from typing import Callable, Dict, List, Optional
 
 from engine.agent import Agent, MinimaxAgent, RandomAgent
 
-from . import material_agent, structure_agent
+from . import aggression_agent, material_agent, structure_agent
 
 
 @dataclass(frozen=True)
@@ -67,4 +67,5 @@ register(AgentSpec("random", "Random", "Plays random legal moves.", 0,
                    lambda depth, seed, time_limit_s: RandomAgent("Random", seed=seed)))
 register_eval_agent("material", material_agent)
 register_eval_agent("structure", structure_agent)
-# register_eval_agent("aggression", aggression_agent)
+register(AgentSpec("aggression", aggression_agent.NAME, aggression_agent.DESCRIPTION,
+                   aggression_agent.DEFAULT_DEPTH, aggression_agent.create))
