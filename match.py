@@ -17,8 +17,8 @@ Output folder (default match_logs/<timestamp>_<A>_vs_<B>/):
 
 The first --opening-plies half-moves can be selected randomly from each
 agent's near-best moves. This keeps openings tied to the agents' evaluations
-while adding seeded variety. Each generated opening is played twice with the
-colours swapped, which keeps the comparison fair.
+while adding seeded variety. Each game gets its own seeded opening, generated
+with the agents playing White and Black in that game.
 """
 from __future__ import annotations
 
@@ -157,21 +157,16 @@ def run_match(agent_a: Agent, agent_b: Agent, *, games: int = 6,
         if isinstance(agent, MinimaxAgent):
             agent.time_limit_s = time_limit_s
 
-    # Generate with A as White and B as Black, then reuse each line for the
-    # colour-swapped game so both agents see the same opening.
-    openings = [
-        evaluated_opening(
-            agent_a, agent_b, random.Random(seed * 1000 + i),
-            opening_plies, opening_margin_cp,
-        )
-        for i in range((games + 1) // 2)
-    ]
     records: List[GameRecord] = []
     for i in range(games):
         a_is_white = (i % 2 == 0)
         white, black = (agent_a, agent_b) if a_is_white else (agent_b, agent_a)
+        opening = evaluated_opening(
+            white, black, random.Random(seed * 1000 + i),
+            opening_plies, opening_margin_cp,
+        )
         rec = play_game(white, black, game_no=i + 1, a_is_white=a_is_white,
-                        max_plies=max_plies, opening=openings[i // 2],
+                        max_plies=max_plies, opening=opening,
                         verbose=verbose)
         records.append(rec)
         if not quiet:
