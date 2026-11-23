@@ -36,8 +36,11 @@ class GamePanel(tk.Frame):
     def __init__(self, master, *, on_new_game: Callable, on_undo: Callable, on_flip: Callable,
                  on_resign: Callable, on_step: Callable, on_toggle_autoplay: Callable,
                  on_delay: Callable[[int], None],
-                 on_difficulty: Callable[[chess.Color, str, float], None]):
+                 on_difficulty: Callable[[chess.Color, str, float], None],
+                 on_play_again: Optional[Callable] = None):
         super().__init__(master, bg=theme.PANEL)
+        self.on_resign = on_resign
+        self.on_play_again = on_play_again
         self.on_difficulty = on_difficulty
 
         # Header + status.
@@ -187,7 +190,15 @@ class GamePanel(tk.Frame):
         self.play_button.set_enabled(not over)
         self.step_button.set_enabled(can_step)
         self.undo_button.set_enabled(can_undo)
-        self.resign_button.set_enabled(self._resign_allowed and not over)
+        # After the game ends the Resign slot becomes "Play again".
+        if over and self.on_play_again is not None:
+            self.resign_button.config(text="↻ Again")
+            self.resign_button.command = self.on_play_again
+            self.resign_button.set_enabled(True)
+        else:
+            self.resign_button.config(text="⚑ Resign")
+            self.resign_button.command = self.on_resign
+            self.resign_button.set_enabled(self._resign_allowed and not over)
         self._render_moves(game.history, result, current_ply)
 
     def _render_moves(self, history: List[MoveRecord], result: str,

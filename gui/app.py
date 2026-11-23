@@ -14,7 +14,7 @@ from typing import Optional
 
 import chess
 
-from agents import create_agent
+from agents import available_agents, create_agent
 from engine.agent import HumanPlayer, Player
 from engine.game import Game, MoveRecord
 
@@ -57,6 +57,10 @@ class ChessApp:
         self._tick_id = None
         # Review of a finished game: number of moves shown, or None for the live board.
         self.view_ply: Optional[int] = None
+        # Rematch series: side A = whoever was White in the first game.
+        self.series = {"a": 0, "b": 0, "draws": 0}
+        self.a_is_white = True
+        self._rematch_swap = False
 
         self._build()
         self._bind_keys()
@@ -85,7 +89,8 @@ class ChessApp:
         self.game_panel = GamePanel(
             self.side, on_new_game=self.show_setup, on_undo=self.undo, on_flip=self.flip,
             on_resign=self.resign, on_step=self.step, on_toggle_autoplay=self.toggle_autoplay,
-            on_delay=self.set_delay, on_difficulty=self.set_difficulty)
+            on_delay=self.set_delay, on_difficulty=self.set_difficulty,
+            on_play_again=self._show_rematch)
         self.setup_panel = SetupPanel(self.side, on_start=self.new_game,
                                       on_back=self.show_game_panel)
         self._layout()
@@ -194,8 +199,16 @@ class ChessApp:
             return HumanPlayer("You")
         return create_agent(side.agent_key, depth=side.depth, time_limit_s=side.time_limit_s)
 
-    def new_game(self, config: GameConfig, *, board: Optional[chess.Board] = None):
+    def new_game(self, config: GameConfig, *, board: Optional[chess.Board] = None,
+                 rematch: bool = False):
         self.runner.cancel()
+        if rematch:
+            if self._rematch_swap:
+                self.a_is_white = not self.a_is_white
+        else:
+            self.series = {"a": 0, "b": 0, "draws": 0}
+            self.a_is_white = True
+        self._rematch_swap = False
         self.config = config
         self.game = Game(self._make_player(config.white), self._make_player(config.black),
                          board=board)
@@ -452,6 +465,7 @@ class ChessApp:
 
         if over and not self._over_announced:
             self._over_announced = True
+            self._record_result()
             self.autoplay = False
             self._announce_result()
 
@@ -468,10 +482,73 @@ class ChessApp:
             title = "You won!" if winner == human else f"{winner_name} won"
         how = "resignation" if self.resigned is not None else _pretty(game.termination)
         subtitle = f"{self._result_string()}  ·  by {how}"
+        series = self._series_text()
+        if series:
+            subtitle += "\n" + series
         self.board_view.show_banner(title, subtitle, [
+            ("Play Again", self._show_rematch),
             ("New Game", self._banner_new_game),
             ("Review", self.board_view.hide_banner),
         ])
+
+    # ---- rematch -------------------------------------------------------------
+    def _record_result(self):
+        winner = self._winner()
+        if winner is None:
+            self.series["draws"] += 1
+        elif (winner == chess.WHITE) == self.a_is_white:
+            self.series["a"] += 1
+        else:
+            self.series["b"] += 1
+
+    def _side_label(self, side: SideConfig) -> str:
+        if side.is_human:
+            return "You"
+        spec = next((s for s in available_agents() if s.key == side.agent_key), None)
+        name = spec.name if spec else side.agent_key
+        return name if spec is not None and not spec.default_depth else f"{name} (d{side.depth})"
+
+    def _series_text(self) -> str:
+        games = sum(self.series.values())
+        if games < 2:
+            return ""
+        a_side = self.config.white if self.a_is_white else self.config.black
+        b_side = self.config.black if self.a_is_white else self.config.white
+        a, b = self._side_label(a_side), self._side_label(b_side)
+        if a == b:
+            a, b = f"{a} [A]", f"{b} [B]"
+        n = self.series["draws"]
+        draws = f", {n} draw{'s' if n != 1 else ''}" if n else ""
+        return f"Series: {a} {self.series['a']} – {self.series['b']} {b}{draws}"
+
+    def _show_rematch(self):
+        """Banner asking whether to swap colours before the rematch starts."""
+        cfg = self.config
+        white, black = (cfg.black, cfg.white) if self._rematch_swap else (cfg.white, cfg.black)
+        swapped = "  (colours swapped)" if self._rematch_swap else ""
+        self.board_view.show_banner(
+            "Play again?",
+            f"White: {self._side_label(white)}\nBlack: {self._side_label(black)}{swapped}",
+            [("Start", self.rematch),
+             ("⇄ Swap colours", self._toggle_rematch_swap),
+             ("Back", self._announce_result)])
+
+    def _toggle_rematch_swap(self):
+        self._rematch_swap = not self._rematch_swap
+        self._show_rematch()
+
+    def rematch(self, swap: Optional[bool] = None):
+        """Same players and difficulty settings, fresh board; optionally swap colours."""
+        if self.config is None:
+            return
+        if swap is not None:
+            self._rematch_swap = swap
+        cfg = self.config
+        if self._rematch_swap:
+            cfg = GameConfig(white=cfg.black, black=cfg.white)
+        else:
+            cfg = GameConfig(white=cfg.white, black=cfg.black)
+        self.new_game(cfg, rematch=True)
 
     def _banner_new_game(self):
         self.board_view.hide_banner()

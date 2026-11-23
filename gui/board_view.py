@@ -256,7 +256,8 @@ class BoardView(tk.Canvas):
     def _draw_banner(self, sq):
         title, subtitle, buttons = self._banner
         size = 8 * sq
-        w, h = min(size - 40, max(260, sq * 4)), max(170, int(sq * 2.6))
+        w = min(size - 40, max(260, sq * 4, 125 * len(buttons)))
+        h = max(170, int(sq * 2.6))
         x0, y0 = (size - w) / 2, (size - h) / 2
         self.create_rectangle(x0 + 4, y0 + 6, x0 + w + 4, y0 + h + 6, fill="#141311", width=0)
         self.create_rectangle(x0, y0, x0 + w, y0 + h, fill=theme.PANEL, outline=theme.BORDER)

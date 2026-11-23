@@ -147,6 +147,39 @@ class GuiSmokeTest(unittest.TestCase):
         self.app.review_to(None)                              # End
         self.assertIsNone(self.app.view_ply)
 
+    def test_play_again_with_swapped_colours(self):
+        self._finished_game()
+        self.assertEqual(self.app.series, {"a": 1, "b": 0, "draws": 0})
+        self.app.board_view.hide_banner()                     # Review ...
+        self.app.game_panel.resign_button.invoke()            # ... then "↻ Again"
+        self.assertTrue(self.app.board_view.banner_visible)
+        self.app._toggle_rematch_swap()
+        self.app.rematch()
+        game = self.app.game
+        self.assertTrue(game.black.is_human)                  # human now plays Black
+        self.assertFalse(self.app.board_view.white_bottom)
+        self.assertEqual(len(game.history), 0)
+        self.assertEqual(game.board.fen(), chess.STARTING_FEN)
+        self.assertFalse(self.app.a_is_white)
+        self.app.resign()                                     # human (side A) loses as Black
+        self.assertEqual(self.app.series, {"a": 1, "b": 1, "draws": 0})
+        self.assertIn("Series", self.app._series_text())
+
+    def test_agent_vs_agent_rematch_keeps_agents_and_settings(self):
+        cfg = self.GameConfig(self.SideConfig("material", 2, 1.0),
+                              self.SideConfig("random", 1, 1.0))
+        self.app.new_game(cfg)
+        self.app.set_difficulty(chess.WHITE, "depth", 1)
+        self.app.rematch(swap=True)
+        game = self.app.game
+        self.assertEqual((game.white.name, game.black.name), ("Random", "Material"))
+        self.assertEqual(game.black.depth, 1)
+        self.app.rematch(swap=False)
+        self.assertEqual(self.app.game.white.name, "Random")
+        self.app.new_game(cfg)                                # a fresh setup resets the series
+        self.assertTrue(self.app.a_is_white)
+        self.assertEqual(sum(self.app.series.values()), 0)
+
     def test_review_keys_ignored_during_play(self):
         self.human_vs("random")
         self.app.review_step(-1)
