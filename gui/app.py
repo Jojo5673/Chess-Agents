@@ -55,6 +55,8 @@ class ChessApp:
         self.error: Optional[str] = None
         self._over_announced = False
         self._tick_id = None
+        # Review of a finished game: number of moves shown, or None for the live board.
+        self.view_ply: Optional[int] = None
 
         self._build()
         self._bind_keys()
@@ -113,7 +115,10 @@ class ChessApp:
         r.bind("<Control-z>", lambda e: self.undo())
         r.bind("<Key-f>", lambda e: self.flip())
         r.bind("<space>", lambda e: self.toggle_autoplay())
-        r.bind("<Right>", lambda e: self.step())
+        r.bind("<Right>", lambda e: self._right_key())
+        r.bind("<Left>", lambda e: self.review_step(-1))
+        r.bind("<Home>", lambda e: self.review_to(0))
+        r.bind("<End>", lambda e: self.review_to(None))
         r.bind("<Escape>", lambda e: self._escape())
 
     def _escape(self):
@@ -124,6 +129,45 @@ class ChessApp:
         else:
             self.board_view.clear_selection()
             self.board_view.redraw()
+
+    # ---- review (finished games) -----------------------------------------------
+    @property
+    def reviewing(self) -> bool:
+        return self.view_ply is not None
+
+    def _right_key(self):
+        if self.is_over:
+            self.review_step(1)
+        else:
+            self.step()
+
+    def review_step(self, delta: int):
+        """Move the reviewed position back (-1) or forward (+1) one ply."""
+        if self.game is None or not self.is_over or self.setup_visible:
+            return
+        total = len(self.game.history)
+        current = total if self.view_ply is None else self.view_ply
+        self.review_to(max(0, min(total, current + delta)))
+
+    def review_to(self, ply: Optional[int]):
+        """Show the position after `ply` moves (None or the last ply = final position)."""
+        if self.game is None or not self.is_over or self.setup_visible:
+            return
+        if self.board_view.banner_visible:
+            self.board_view.hide_banner()
+        total = len(self.game.history)
+        self.view_ply = None if ply is None or ply >= total else max(0, ply)
+        self.board_view.clear_selection()
+        self.refresh()
+
+    def _display_board(self) -> chess.Board:
+        board = self.game.board
+        if self.view_ply is None:
+            return board
+        board = board.copy()
+        for _ in range(len(self.game.history) - self.view_ply):
+            board.pop()
+        return board
 
     # ---- panels ------------------------------------------------------------
     def show_setup(self):
@@ -159,6 +203,7 @@ class ChessApp:
         self.autoplay = False
         self.error = None
         self._over_announced = False
+        self.view_ply = None
         self.last_move_at = time.monotonic()
         self.board_view.clear_selection()
         self.board_view.hide_banner()
@@ -208,8 +253,8 @@ class ChessApp:
     # ---- controls --------------------------------------------------------------
     def undo(self):
         game = self.game
-        if game is None or not game.history:
-            return
+        if game is None or not game.history or self.is_over:
+            return                    # a finished game is final; only review it
         self.runner.cancel()
         self.autoplay = False
         self.resigned = None
@@ -363,16 +408,21 @@ class ChessApp:
 
     def refresh(self):
         game = self.game
+        if game is not None and self.view_ply is not None and not self.is_over:
+            self.view_ply = None
+        self.board_view.display_board = (self._display_board()
+                                          if game is not None and self.reviewing else None)
         self.board_view.redraw()
         if game is None:
             self.eval_bar.set(None, True)
             return
-        board = game.board
+        board = self._display_board()
         white_bottom = self.board_view.white_bottom
         over = self.is_over
         result = self._result_string()
 
-        last_eval = next((r.score for r in reversed(game.history)
+        shown = game.history if self.view_ply is None else game.history[:self.view_ply]
+        last_eval = next((r.score for r in reversed(shown)
                           if r.source == "agent" and r.depth), None)
         self.eval_bar.set(last_eval, white_bottom)
 
@@ -389,11 +439,16 @@ class ChessApp:
                            to_move=not over and board.turn == color, thinking=thinking,
                            is_human=player.is_human, result=side_result)
 
+        status = self._status_text()
+        if over and game.history:
+            shown_ply = len(game.history) if self.view_ply is None else self.view_ply
+            status += f"  ·  Move {shown_ply}/{len(game.history)} (← → Home End)"
         self.game_panel.update_view(
-            game, status=self._status_text(), over=over, thinking=self._thinking_text(),
+            game, status=status, over=over, thinking=self._thinking_text(),
             autoplay=self.autoplay, can_step=(self.agent_vs_agent and not over
                                               and not self.runner.busy),
-            can_undo=bool(game.history), result=result)
+            can_undo=bool(game.history) and not over, result=result,
+            current_ply=self.view_ply)
 
         if over and not self._over_announced:
             self._over_announced = True

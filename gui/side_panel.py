@@ -167,7 +167,8 @@ class GamePanel(tk.Frame):
 
     # ---- refresh -----------------------------------------------------------
     def update_view(self, game: Game, *, status: str, over: bool, thinking: str,
-                    autoplay: bool, can_step: bool, can_undo: bool, result: str):
+                    autoplay: bool, can_step: bool, can_undo: bool, result: str,
+                    current_ply: Optional[int] = None):
         self.status.config(text=status,
                            fg=theme.ACCENT if over or game.board.is_check() else theme.MUTED)
         for color in (chess.WHITE, chess.BLACK):
@@ -187,10 +188,13 @@ class GamePanel(tk.Frame):
         self.step_button.set_enabled(can_step)
         self.undo_button.set_enabled(can_undo)
         self.resign_button.set_enabled(self._resign_allowed and not over)
-        self._render_moves(game.history, result)
+        self._render_moves(game.history, result, current_ply)
 
-    def _render_moves(self, history: List[MoveRecord], result: str):
-        key = (len(history), result, history[-1].uci if history else None)
+    def _render_moves(self, history: List[MoveRecord], result: str,
+                      current_ply: Optional[int] = None):
+        # current_ply = number of moves shown on the board (None = all of them).
+        shown = len(history) if current_ply is None else current_ply
+        key = (len(history), result, history[-1].uci if history else None, shown)
         if key == self._move_count:
             return
         self._move_count = key
@@ -206,12 +210,16 @@ class GamePanel(tk.Frame):
             for j in (0, 1):
                 t.insert("end", "\t", line_tags)
                 if i + j < len(plies) and plies[i + j] is not None:
-                    tags = line_tags + (("last",) if i + j == len(plies) - 1 else ())
+                    is_current = i + j - offset == shown - 1
+                    tags = line_tags + (("last", "current") if is_current else ())
                     t.insert("end", f" {plies[i + j].san} ", tags)
                 elif i + j < len(plies):
                     t.insert("end", "...", line_tags)
             t.insert("end", "\n", line_tags)
         if result:
             t.insert("end", f"  {result}\n", ("result",))
-        t.see("end")
+        if current_ply is None or not t.tag_ranges("current"):
+            t.see("end")
+        else:
+            t.see("current.first")
         t.config(state="disabled")

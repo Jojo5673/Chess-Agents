@@ -104,6 +104,54 @@ class GuiSmokeTest(unittest.TestCase):
         self.assertEqual(self.app._result_string(), "0-1")
         self.assertFalse(self.app.human_can_move())
 
+    def _finished_game(self):
+        """Human (White) mates the random agent in a fixed mate-in-one position."""
+        board = chess.Board("6k1/5ppp/8/8/8/8/5PPP/R5K1 w - - 0 1")
+        game = self.human_vs("random", board=board)
+        self.app.on_board_move(chess.A1, chess.A8)          # Ra8#
+        self.assertTrue(self.app.is_over)
+        return game
+
+    def test_undo_disabled_after_game_over(self):
+        game = self._finished_game()
+        self.app.board_view.hide_banner()                     # "Review"
+        self.app.undo()
+        self.assertEqual(len(game.history), 1)
+        self.assertTrue(self.app.is_over)
+        self.assertFalse(self.app.game_panel.undo_button.enabled)
+
+    def test_undo_disabled_after_resign(self):
+        game = self.human_vs("random")
+        self.app.on_board_move(chess.E2, chess.E4)
+        self.pump_until(lambda: len(game.history) == 2)
+        self.app.resign()
+        self.app.undo()
+        self.assertTrue(self.app.is_over)
+        self.assertEqual(len(game.history), 2)
+
+    def test_arrow_keys_review_finished_game(self):
+        game = self._finished_game()
+        final_fen = game.board.fen()
+        start_fen = chess.Board("6k1/5ppp/8/8/8/8/5PPP/R5K1 w - - 0 1").fen()
+        self.app.review_step(-1)                              # Left
+        self.assertFalse(self.app.board_view.banner_visible)
+        self.assertEqual(self.app.view_ply, 0)
+        self.assertEqual(self.app.board_view.display_board.fen(), start_fen)
+        self.assertEqual(game.board.fen(), final_fen)         # the game itself is untouched
+        self.app.review_step(-1)                              # clamps at the start
+        self.assertEqual(self.app.view_ply, 0)
+        self.app._right_key()                                 # Right
+        self.assertIsNone(self.app.view_ply)
+        self.assertIsNone(self.app.board_view.display_board)
+        self.app.review_to(0)                                 # Home
+        self.app.review_to(None)                              # End
+        self.assertIsNone(self.app.view_ply)
+
+    def test_review_keys_ignored_during_play(self):
+        self.human_vs("random")
+        self.app.review_step(-1)
+        self.assertIsNone(self.app.view_ply)
+
     def test_agent_vs_agent_step_and_autoplay(self):
         cfg = self.GameConfig(self.SideConfig("material", 1, 1.0),
                               self.SideConfig("random", 1, 1.0))

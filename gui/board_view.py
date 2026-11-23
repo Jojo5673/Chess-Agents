@@ -34,6 +34,8 @@ class BoardView(tk.Canvas):
         self._promo: Optional[Tuple[chess.Square, chess.Color, Callable]] = None
         self._banner: Optional[Tuple[str, str, Sequence[Tuple[str, Callable]]]] = None
         self._banner_widgets: List[tk.Widget] = []
+        # Set by the app while reviewing a finished game; None = live board.
+        self.display_board: Optional[chess.Board] = None
 
         self.bind("<Configure>", lambda e: self.redraw())
         self.bind("<ButtonPress-1>", self._on_press)
@@ -118,7 +120,10 @@ class BoardView(tk.Canvas):
         self._banner_widgets = []
 
         game = self.get_game()
-        board = game.board if game is not None else chess.Board()
+        if self.display_board is not None:
+            board = self.display_board
+        else:
+            board = game.board if game is not None else chess.Board()
         last = board.peek() if board.move_stack else None
         sq = self.sq
 
