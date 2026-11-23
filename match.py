@@ -75,7 +75,11 @@ def evaluated_opening(white: Agent, black: Agent, rng: random.Random, plies: int
         if board.is_game_over(claim_draw=False):
             break
         agent = white if board.turn == chess.WHITE else black
-        if isinstance(agent, MinimaxAgent):
+        opening_move = getattr(agent, "opening_move", None)
+        move = opening_move(board, rng) if opening_move else None
+        if move is not None:
+            pass  # the agent's own opening book chose the move
+        elif isinstance(agent, MinimaxAgent):
             move = find_best_move(
                 board, agent.depth, agent.eval_fn,
                 use_alpha_beta=agent.use_alpha_beta,

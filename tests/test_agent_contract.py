@@ -134,6 +134,8 @@ class AgentBehaviourTests(unittest.TestCase):
             if not spec.default_depth:
                 continue
             agent = create_agent(spec.key, depth=1)
+            if hasattr(agent, "use_book"):
+                agent.use_book = False   # this test is about search depth, not books
             board = chess.Board(SAMPLE_FENS[1])
             shallow = agent.choose_move(board)
             agent.depth = 2
