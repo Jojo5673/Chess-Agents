@@ -14,7 +14,7 @@ Pair Members: Joseph Udoudo `(620172690)` and Ruwan Amarakoon `(620171573)`
 | Aggression agent | Ruwan Amarakoon |
 | Tkinter GUI | Ruwan Amarakoon |
 | Documentation | Joseph Udoudo |
-| Match report | Ruwan Amarakoon |
+| Match report and report workbook builder (`match_report.py`) | Ruwan Amarakoon |
 
 Each agent's evaluation function was designed and written independently by its owner. The two
 evaluation functions share the material count and no other code.
@@ -190,6 +190,48 @@ Notes on the logs:
   opening book is logged with depth 0 and 0 nodes.
 - `match_logs/` is listed in `.gitignore`, so logs are not committed. Copy the runs you use for the
   match report somewhere permanent.
+
+### Match report workbook
+
+`match_report.py` combines one or more match runs into an Excel workbook for the match report,
+plus plain CSV copies of the same data. It needs `openpyxl` (`pip install openpyxl`), which is
+only used for this script. The CSVs are written even without it.
+
+```bash
+# the runs used for the match report (5 matchups, 60 games)
+python match.py --a material  --b structure  --games 10 --depth 3 --time-limit 0 --opening-plies 4 --seed 2026 --out match_logs/report
+python match.py --a material  --b aggression --games 10 --depth 3 --time-limit 0 --opening-plies 4 --seed 2026 --out match_logs/report
+python match.py --a random    --b structure  --games 10 --depth 3 --time-limit 0 --opening-plies 4 --seed 2026 --out match_logs/report
+python match.py --a random    --b aggression --games 10 --depth 3 --time-limit 0 --opening-plies 4 --seed 2026 --out match_logs/report
+python match.py --a structure --b aggression --games 20 --depth 3 --time-limit 0 --opening-plies 4 --seed 2026 --out match_logs/report
+
+# build match_logs/report/match_report.xlsx from every run in match_logs/report
+python match_report.py
+
+# or from chosen runs, to another file, with extra lines on the Notes sheet
+python match_report.py match_logs/report/<run1> match_logs/report/<run2> --out report.xlsx --note "Seed=2026"
+```
+
+Because colours alternate every game, an even number of games gives each agent the same number of
+games with each colour in every matchup.
+
+| Sheet | Contents |
+| --- | --- |
+| `Summary` | One row per matchup: games, wins, losses, draws, points, score %, results with each colour, average length, checkmates, nodes and seconds per move, and a score chart |
+| `Agent Stats` | Each agent against each opponent and against all opponents: results plus a style profile (captures, checks, material captured, material drops, sacrifices, castling rate and timing, first check, king moves, book moves, nodes, seconds and depth per move, average evaluation) and a style chart |
+| `Games` | One row per game: players, result, winner, termination, length, named opening reached (for example King's Gambit, Elephant, Alien, Martian), opening moves, final material and evaluation |
+| `AgentGames` | One row per agent per game: the per-game numbers behind `Agent Stats` |
+| `Moves` | Every move with its score, depth, nodes, time, capture and check flags, and the material balance |
+| `Notes` | Settings, commands and a definition of every column |
+
+The `Summary` and `Agent Stats` sheets use formulas over the `Games` and `AgentGames` sheets, so
+filtering or correcting the raw rows updates them. A *material drop* is a move after which the
+mover is at least 2 pawns down once the opponent has replied. A drop counts as a *sacrifice* when
+the mover's own search still rated its position at least 1.5 pawns better than the material balance.
+
+The script also writes `report_summary.csv`, `report_games.csv`, `report_agent_games.csv` and
+`report_moves.csv` next to the workbook. Like the logs, these files sit under `match_logs/` and are
+not committed.
 
 ---
 
