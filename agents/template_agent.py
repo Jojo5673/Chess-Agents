@@ -1,9 +1,8 @@
 """
-TEMPLATE for a new agent. Copy this file (e.g. to agents/structure_agent.py),
-fill in NAME / DESCRIPTION and write `evaluate`, then register it with one
-line in agents/__init__.py:
-
-    register_eval_agent("structure", structure_agent)
+template for a new agent. 
+Copy this file, fill in NAME / DESCRIPTION and write `evaluate`, 
+then register it in agents/__init__.py 
+eg. register_eval_agent("structure", structure_agent)
 
 Rules for `evaluate(board)`:
   * Return a score from WHITE's perspective (positive = good for White).
@@ -21,7 +20,6 @@ NAME = "Template"
 DESCRIPTION = "Describe this agent's strategic identity here."
 DEFAULT_DEPTH = 3
 
-# Put tunable weights at the top so they are easy to adjust after matches.
 # EXAMPLE_WEIGHT = 10
 
 

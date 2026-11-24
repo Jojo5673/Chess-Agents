@@ -1,9 +1,7 @@
 """
-Baseline reference agent: counts material and nothing else.
+Baseline reference agent that counts material and nothing else.
 
-Used as the "basic reference agent" for testing, and as an example of the
-module convention every agent follows:
-
+Used as an example of the module convention for every agent:
     NAME            display name shown in the GUI / match logs
     DESCRIPTION     one-line plain-language strategic identity
     DEFAULT_DEPTH   search depth used unless the caller overrides it

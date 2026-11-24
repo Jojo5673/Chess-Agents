@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """
-Measures how much Alpha-Beta pruning (and move ordering) saves.
+Measures how much Alpha-Beta pruning and move ordering saves.
+Used to explain minimax and alpha beta implementation in documentation.
+See instructions to reproduce documentation results in documentation
 
+Usage:
     python pruning_report.py            # depths 1-3
     python pruning_report.py --max-depth 4
 
 Prints nodes visited by: plain minimax, alpha-beta, alpha-beta + move ordering.
-All three must return the same score; only the node counts differ. The table
-is ready to paste into the documentation.
 """
 import argparse
 

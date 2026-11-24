@@ -1,7 +1,7 @@
 """
 Shared evaluation vocabulary for every agent.
 
-CONVENTION (both partners must follow this):
+EVALUATION CONVENTION:
     An evaluation function takes a chess.Board and returns a number from
     WHITE's perspective:  positive = good for White, negative = good for Black.
     It is only called on NON-terminal positions. Checkmate, stalemate and draw

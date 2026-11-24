@@ -1,22 +1,23 @@
 #!/usr/bin/env python3
 """
-Agent-vs-agent match harness.
+Agent-vs-agent match player.
 
 Plays N games between agent A and agent B, alternating colours, and writes a
 full log for the match report.
 
+Usage:
     python match.py --list
     python match.py --a material --b random --games 6 --depth 3
     python match.py --a material --b material --depth-a 2 --depth-b 4
 
-Output folder (default match_logs/<timestamp>_<A>_vs_<B>/):
+Output folder (match_logs/<timestamp>_<A>_vs_<B>/):
     summary.txt   scoreline, per-colour results, per-agent search stats
     moves.csv     every move: score, depth, nodes, time (for charts/analysis)
     games.json    full structured records
-    games.pgn     all games, openable in any chess viewer
+    games.pgn     all games, pgn file can be opened in any chess viewer
 
 The first --opening-plies half-moves can be selected randomly from each
-agent's near-best moves. This keeps openings tied to the agents' evaluations
+agent's near-best moves to keep openings tied to the agents evaluations
 while adding seeded variety. Each game gets its own seeded opening, generated
 with the agents playing White and Black in that game.
 """
@@ -65,7 +66,7 @@ class MatchResult:
     out_dir: Optional[Path] = None
 
 
-# ---------------------------------------------------------------- one game --
+# One Game
 def evaluated_opening(white: Agent, black: Agent, rng: random.Random, plies: int,
                       margin_cp: float) -> List[chess.Move]:
     """Build an opening by sampling near-best moves from each agent in turn."""
@@ -137,7 +138,7 @@ def play_game(white: Agent, black: Agent, *, game_no: int, a_is_white: bool,
     )
 
 
-# ------------------------------------------------------------------- match --
+# Match of N games
 def run_match(agent_a: Agent, agent_b: Agent, *, games: int = 6,
               max_plies: int = 300, opening_plies: int = 0, seed: int = 0,
               opening_margin_cp: float = 50.0,
@@ -186,7 +187,7 @@ def run_match(agent_a: Agent, agent_b: Agent, *, games: int = 6,
     return result
 
 
-# --------------------------------------------------------------- reporting --
+# Logging
 def _agent_stats(records: List[GameRecord], label: str) -> Dict:
     """Average search effort for agent `label` ('A' or 'B') over all its moves."""
     nodes, times = [], []
@@ -276,7 +277,7 @@ def write_logs(result: MatchResult, base: Path, agent_a: Agent, agent_b: Agent) 
     return folder
 
 
-# --------------------------------------------------------------------- CLI --
+# parsing CLI parguments
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)

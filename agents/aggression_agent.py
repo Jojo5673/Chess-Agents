@@ -1,11 +1,8 @@
 """
 Aggression agent: an attacking, initiative-first player.
 
-Strategic identity
-------------------
-Where Structure asks "is my position sound?", Aggression asks "how much
-pressure am I creating?". Its evaluation rewards:
-
+Aggression focuses on creating pressure on its opponent
+Its evaluation rewards:
   * mobility        - safe squares each piece reaches (activity over placement)
   * king attack     - pieces bearing down on the enemy king zone, scored
                       NON-LINEARLY so that several attackers together are worth
@@ -24,14 +21,9 @@ pressure am I creating?". Its evaluation rewards:
   * development     - minor pieces off the back rank, scaled to the opening.
   * centre control  - attacks on, and pawns in, d4/e4/d5/e5.
 
-None of these reuse Structure's terms (piece-square tables, pawn structure,
-pawn shields, bishop pair, rook files, defended/hanging pieces).
-
 It also carries a small opening book of popular gambits (see BOOK_LINES), so
 in the opening it plays sharp, well-known lines instead of whatever a shallow
-search prefers. Out of book it is a normal minimax/alpha-beta agent.
-
-Scores follow the project convention: White's perspective, centipawns.
+search prefers. 
 """
 import random
 import time
@@ -50,7 +42,6 @@ DESCRIPTION = (
 )
 DEFAULT_DEPTH = 3
 
-# ---- tunable weights --------------------------------------------------------
 # Safe-mobility bonus per reachable square, by piece type.
 MOBILITY_WEIGHTS = {chess.KNIGHT: 4, chess.BISHOP: 4, chess.ROOK: 2, chess.QUEEN: 1}
 
@@ -81,7 +72,7 @@ CENTRE_PAWN_BONUS = 12           # per own pawn on d4/e4/d5/e5
 MAX_PHASE = 24
 _PHASE_VALUES = {chess.KNIGHT: 1, chess.BISHOP: 1, chess.ROOK: 2, chess.QUEEN: 4}
 
-# ---- precomputed masks ------------------------------------------------------
+# Precomputed masks 
 _CENTRE = chess.BB_D4 | chess.BB_E4 | chess.BB_D5 | chess.BB_E5
 _BACK_RANK = {chess.WHITE: chess.BB_RANK_1, chess.BLACK: chess.BB_RANK_8}
 _KING_ZONE = tuple(chess.BB_KING_ATTACKS[sq] | chess.BB_SQUARES[sq] for sq in chess.SQUARES)
@@ -127,7 +118,7 @@ class _SideInfo:
         self.all_attacks = all_attacks
 
 
-# ---- features (each returns a score for ONE side; evaluate subtracts) ------
+# evaluation features (each returns a score for ONE side)
 def mobility(board: chess.Board, color: chess.Color, us: _SideInfo, them: _SideInfo) -> int:
     """Squares reachable that are not own-occupied and not hit by enemy pawns."""
     blocked = board.occupied_co[color] | them.pawn_attacks
@@ -224,13 +215,15 @@ def evaluate(board: chess.Board) -> float:
     return score
 
 
-# ---- opening book -----------------------------------------------------------
-# Each entry: (colour the book plays, weight, SAN line from the start).
-# Only the moves of the book's colour are used as book moves; the other side's
-# moves just say which position we expect. If the opponent leaves the line, the
-# agent falls back to its normal search.
+# BOOK OF OPENINGS
+"""
+Each entry contains the colour the book plays, weight, and SAN line from the start
+Only the moves of the book's colour are used as book moves, the other side's
+moves just say which position we expect. If the opponent leaves the line, the
+agent falls back to its normal search.
+"""
 BOOK_LINES: List[Tuple[chess.Color, int, str]] = [
-    # --- as White: always 1.e4, then a gambit or sharp system per reply ---
+    # as White
     (chess.WHITE, 3, "e4 e5 f4"),                                  # King's Gambit
     (chess.WHITE, 2, "e4 e5 f4 exf4 Nf3"),
     (chess.WHITE, 2, "e4 e5 f4 d5 exd5"),                          # vs Falkbeer
@@ -239,7 +232,7 @@ BOOK_LINES: List[Tuple[chess.Color, int, str]] = [
     (chess.WHITE, 1, "e4 e5 Nf3 Nc6 d4 exd4 Bc4"),                 # Scotch Gambit
     (chess.WHITE, 3, "e4 c5 d4 cxd4 c3"),                          # Smith-Morra Gambit
     (chess.WHITE, 3, "e4 c5 d4 cxd4 c3 dxc3 Nxc3"),
-    (chess.WHITE, 3, "e4 c6 d4 d5 Nc3 dxe4 Nxe4"),                 # Caro-Kann ...
+    (chess.WHITE, 3, "e4 c6 d4 d5 Nc3 dxe4 Nxe4"),                 # Caro-Kann 
     (chess.WHITE, 3, "e4 c6 d4 d5 Nc3 dxe4 Nxe4 Nf6 Ng5"),         # Alien Gambit
     (chess.WHITE, 3, "e4 c6 d4 d5 Nc3 dxe4 Nxe4 Nf6 Ng5 h6 Nxf7"),
     (chess.WHITE, 3, "e4 c6 d4 d5 Nc3 dxe4 Nxe4 Bf5 Ng5 Bg6 N1f3 h6 Ne6"),  # Martian Gambit
@@ -249,7 +242,7 @@ BOOK_LINES: List[Tuple[chess.Color, int, str]] = [
     (chess.WHITE, 2, "e4 d6 d4 Nf6 Nc3 g6 f4"),                    # Austrian Attack
     (chess.WHITE, 2, "e4 g6 d4 Bg7 Nc3"),
     (chess.WHITE, 1, "e4 Nc6 d4"),
-    # --- as Black ---
+    # as Black 
     (chess.BLACK, 3, "e4 e5 Nf3 d5"),                              # Elephant Gambit
     (chess.BLACK, 3, "e4 e5 Nf3 d5 exd5 e4"),
     (chess.BLACK, 2, "e4 e5 Nf3 d5 exd5 e4 Qe2 Nf6"),

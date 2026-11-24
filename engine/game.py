@@ -2,22 +2,8 @@
 Game controller: the single object a GUI or match harness talks to.
 
 It owns the board, knows who plays each colour, validates moves, keeps a move
-log, and reports the result. It contains NO drawing code and NO threads.
+log, and reports the result
 
-Typical GUI use
----------------
-    game = Game(HumanPlayer("You"), create_agent("agent_b"))
-
-    # Human clicks a piece then a target square:
-    move = game.move_from_squares(src, dst)          # None if illegal
-    if move: game.play_move(move)
-
-    # When it's an agent's turn, run this OFF the UI thread (search blocks):
-    if game.is_agent_turn:
-        record = game.play_agent_move()              # then redraw from game.board
-
-Agent-vs-agent is just a loop of `while not game.is_over: game.play_agent_move()`
-(or one call per button press / timer tick to step through a game).
 """
 from __future__ import annotations
 

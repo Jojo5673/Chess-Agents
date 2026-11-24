@@ -1,5 +1,4 @@
-"""
-Run an agent's search off the UI thread (pattern from the partner guide, 6.4).
+"""Run an agent's search off the UI thread and apply results on the UI thread.
 
 The worker only *reads*: it searches a private copy of the board. The result is
 handed back through a queue and applied to the Game on the UI thread by poll().

@@ -1,12 +1,5 @@
 """
-Agent registry: the one place that knows which agents exist.
-
-The match harness and the GUI's menu both use this, so adding an agent here
-makes it appear everywhere:
-
-    from agents import create_agent, available_agents
-    agent = create_agent("material", depth=4)
-    for spec in available_agents(): print(spec.key, spec.name, spec.description)
+Agent registry that everything references to know which agents exist
 """
 from dataclasses import dataclass
 from types import ModuleType
@@ -34,7 +27,7 @@ def register(spec: AgentSpec) -> None:
 
 
 def register_eval_agent(key: str, module: ModuleType) -> None:
-    """Register a module following the agent convention (see material_agent.py)."""
+    """Register an agent module that contains a NAME, DESCRIPTION, DEFAULT_DEPTH and evaluate(board) function."""
     def factory(
         depth: int,
         seed: Optional[int],

@@ -1,13 +1,12 @@
 """
 Minimax search with Alpha-Beta pruning.
 
-The search is evaluation-agnostic: it is handed an `eval_fn` (see
-evaluation.py) and uses it at the leaves. It always scores from WHITE's
-perspective: White nodes maximize, Black nodes minimize.
+The search is handed an eval_fn and uses it at the leaves. 
+It always scores from WHITE's perspective, 
+White nodes maximize, Black nodes minimize.
 
-Features
---------
-* Alpha-Beta pruning (can be switched off, to measure how much it saves).
+Contains:
+* Alpha-Beta pruning (can be switched off).
 * Move ordering (captures by MVV-LVA, promotions, checks first) so that
   pruning cuts off earlier.
 * Quiescence search at the horizon to resolve captures and check evasions.

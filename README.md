@@ -1,8 +1,5 @@
 # Chess agents (COMP3220) - shared engine, match harness, agent plug-ins
 
-DRAFT README for the engine + match half of the project. Add the GUI section and
-the "who built which agent" statement once those exist.
-
 ## Setup
     pip install -r requirements.txt     # installs python-chess (package name: chess)
     python -m unittest discover -v      # run the full test suite
@@ -23,7 +20,7 @@ the "who built which agent" statement once those exist.
     pruning_report.py nodes visited with/without alpha-beta (for the docs)
     tests/            unit tests
 
-## The one convention to agree on
+## Evaluation convention
 An evaluation function is `evaluate(board) -> float` and scores from **White's
 perspective** (positive = good for White; for Black features compute
 `white_value - black_value`). It is only called on non-terminal positions: mate,
@@ -50,8 +47,8 @@ initial half-moves by searching with each bot's evaluation and randomizing among
 near-best moves. `--opening-margin-cp` (default 50) controls how far below the
 best score a move can be to qualify. A fresh opening is generated for every
 game using the agents assigned White and Black in that game. The seed makes
-the selected openings reproducible; paired color-swapped games no longer share
-the same opening.
+the selected openings reproducible; color-swapped games may use different
+opening lines.
 Logs go to `match_logs/<time>_<A>_vs_<B>/`: `summary.txt` (scoreline + search
 stats), `moves.csv` (every move with score/depth/nodes/time), `games.json`, `games.pgn`.
 

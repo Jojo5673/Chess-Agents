@@ -5,10 +5,10 @@ Everything that can sit on one side of the board is a `Player`:
     HumanPlayer   - moves come from the GUI (the engine never asks it to move)
     Agent         - computer player; implements choose_move(board) -> SearchResult
     MinimaxAgent  - Agent = shared minimax/alpha-beta search + a pluggable eval function
-    RandomAgent   - plays random legal moves (a sanity-check opponent)
+    RandomAgent   - plays random legal moves 
 
-To create a new strategy you normally do NOT subclass anything: write an
-evaluation function and wrap it in a MinimaxAgent (see agents/).
+To create a new strategy one only needs to write an
+evaluation function and wrap it in a MinimaxAgent .
 """
 from __future__ import annotations
 
